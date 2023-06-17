@@ -3,4 +3,4 @@ project(pico_http_server C)
 
 set(CMAKE_C_STANDARD 11)
 
-add_executable(pico_http_server main.c http/http_request.h http/http_request.c)
+add_executable(pico_http_server main.c http/http_request.h http/http_request.c http/http_server.c http/http_response.c)

@@ -1,6 +1,14 @@
-#include <stdio.h>
+#include "http/http_server.h"
 
 int main() {
-    printf("Hello, World!\n");
+    struct ServerOption option = {
+            .port = 8000,
+            .host = "127.0.0.1"
+    };
+
+    HttpServer httpServer = new_http_server(option);
+
+    httpServer.listen(&httpServer);
+
     return 0;
 }
