@@ -23,9 +23,7 @@ typedef struct HttpRequestToken {
 
 
 HttpRequestToken *tokenize_http_request(const char *rawRequest);
-
 HttpRequestToken *new_token(HttpRequestTokenKind kind, HttpRequestToken *token, char *str, int len);
-
 void dispose_token(HttpRequestToken *token);
 
 HttpRequest *parse_http_request(const char *rawRequest) {
