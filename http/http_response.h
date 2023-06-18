@@ -17,6 +17,9 @@ typedef enum RedirectType {
     Permanent
 } RedirectType;
 
+
+HttpResponse *new_response();
+void dispose_response(HttpResponse *response);
 char *build_response_header(const HttpResponse *response);
 HttpResponse *redirect(HttpResponse *res, RedirectType type, char *location);
 HttpResponse *not_found(HttpResponse *res);
