@@ -212,7 +212,6 @@ int static_file_handler(const HttpServer *server, const HttpRequest *req, HttpRe
 
         fflush(fp);
         fclose(fp);
-        printf("%lu %lu\n", req->bodySize, s);
 
         res->status = 201;
         res->contentLength = 0;
