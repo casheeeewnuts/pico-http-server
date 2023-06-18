@@ -20,6 +20,7 @@ HttpResponse *new_response() {
     header->remove = del_header;
 
     response->headers = header;
+    response->body = calloc(sizeof(char), 65535);
 
     return response;
 }
@@ -86,7 +87,6 @@ HttpResponse *redirect(HttpResponse *res, RedirectType type, char *location) {
 
     res->contentLength = 0;
     res->contentType = NULL;
-    res->body = NULL;
 
     res->headers->add(res->headers, "Location", location);
 
@@ -94,7 +94,7 @@ HttpResponse *redirect(HttpResponse *res, RedirectType type, char *location) {
 }
 
 HttpResponse *not_found(HttpResponse *res) {
-    res->body = "404 Not Found";
+    strcpy(res->body, "404 Not Found");
     res->status = 404;
     res->contentType = "text/plain; charset=utf-8";
     res->contentLength = strlen(res->body);
@@ -103,7 +103,7 @@ HttpResponse *not_found(HttpResponse *res) {
 }
 
 HttpResponse *method_not_allowed(HttpResponse *res) {
-    res->body = "405 Method Not Allowed";
+    strcpy(res->body, "405 Method Not Allowed");
     res->status = 405;
     res->contentType = "text/plain; charset=utf-8";
     res->contentLength = strlen(res->body);
@@ -112,7 +112,8 @@ HttpResponse *method_not_allowed(HttpResponse *res) {
 }
 
 HttpResponse *forbidden(HttpResponse *res) {
-    res->body = "403 Forbidden";
+    strcpy(res->body, "403 Forbidden");
+
     res->status = 403;
     res->contentType = "text/plain; charset=utf-8";
     res->contentLength = strlen(res->body);
@@ -121,7 +122,7 @@ HttpResponse *forbidden(HttpResponse *res) {
 };
 
 HttpResponse *internal_server_error(HttpResponse *res) {
-    res->body = "500 InternalServerError";
+    strcpy(res->body, "500 InternalServerError");
     res->status = 500;
     res->contentType = "text/plain; charset=utf-8";
     res->contentLength = strlen(res->body);
@@ -137,7 +138,7 @@ void dispose_response(HttpResponse *response) {
 }
 
 void add_header(Header *headers, char *key, char *value) {
-    g_hash_table_insert(headers->table, key, value);
+    g_hash_table_insert(headers->table, g_strdup(key), g_strdup(value));
 }
 void del_header(Header *headers, char *key) {
     g_hash_table_remove(headers->table, key);
