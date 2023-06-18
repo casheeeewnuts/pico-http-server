@@ -7,13 +7,12 @@
 
 static char cwd[2048];
 struct ServerOption parse_command_line_option(int argc, char **argv);
+void init_process();
 
 int main(int argc, char *argv[]) {
-    memset(cwd, 0, 2048);
-    getcwd(cwd, 2048);
+    init_process();
 
     struct ServerOption option = parse_command_line_option(argc, argv);
-
     HttpServer httpServer = new_http_server((struct ServerOption) option);
 
     httpServer.listen(&httpServer);
@@ -21,6 +20,10 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
+void init_process() {
+    memset(cwd, 0, 2048);
+    getcwd(cwd, 2048);
+}
 
 struct ServerOption parse_command_line_option(int argc, char **argv) {
     struct ServerOption option = {
@@ -60,4 +63,6 @@ struct ServerOption parse_command_line_option(int argc, char **argv) {
                 return option;
         }
     }
+
+    return option;
 }

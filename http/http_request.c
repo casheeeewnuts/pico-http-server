@@ -51,6 +51,7 @@ HttpRequest *parse_http_request(const char *rawRequest) {
 
     dispose_token(token);
 
+    request->body = malloc(0);
     return request;
 }
 
