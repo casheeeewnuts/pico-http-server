@@ -25,5 +25,5 @@ typedef struct HttpRequest {
 } HttpRequest;
 
 HttpRequest *parse_http_request(const char *rawRequest);
-
+void dispose_request(HttpRequest *request);
 #endif //PICO_HTTP_SERVER_HTTP_REQUEST_H

@@ -54,6 +54,12 @@ HttpRequest *parse_http_request(const char *rawRequest) {
     return request;
 }
 
+void dispose_request(HttpRequest *request) {
+    free(request->path);
+    free(request->body);
+    free(request);
+}
+
 HttpRequestToken *tokenize_http_request(const char *rawRequest) {
     HttpRequestToken token;
     token.next = NULL;
