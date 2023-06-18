@@ -14,6 +14,7 @@ typedef struct Header {
 
     void (*remove)(struct Header *, char *key);
 
+    char *(* get)(struct Header *, char *key);
     void (*destroy)(struct Header *);
 } Header;
 
