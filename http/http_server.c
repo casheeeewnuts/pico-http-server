@@ -1,7 +1,3 @@
-//
-// Created by casheeeewnuts on 6/17/23.
-//
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,15 +9,15 @@
 #include <errno.h>
 #include <glib-2.0/glib.h>
 #include "http_server.h"
+#include "util/path.h"
 
+// private methods prototypes
 void http_server_listen(HttpServer *);
 int set_tcp_socket(HttpServer *server);
 int wait_connection(const HttpServer *server);
 int handle_connection(const HttpServer *server, int clientSocket, const struct sockaddr_in *clientAddr);
-int handle_request(const HttpServer *server, const HttpRequest *request, HttpResponse *response);
-void static_file_handler(const HttpServer *server, const HttpRequest *req, HttpResponse *res);
-void dispose_request(HttpRequest *request);
-void dispose_response(HttpResponse *response);
+void handle_request(const HttpServer *server, const HttpRequest *request, HttpResponse *response);
+int static_file_handler(const HttpServer *server, const HttpRequest *req, HttpResponse *res);
 
 HttpServer new_http_server(struct ServerOption option) {
     HttpServer server;
@@ -99,55 +95,40 @@ int handle_connection(const HttpServer *server, int clientSocket, const struct s
     HttpRequest *request = parse_http_request("GET / HTTP/1.0");
     request->socket = clientSocket;
     request->remoteAddr = *clientAddr;
-    HttpResponse response;
+    HttpResponse *response = new_response();
 
 
-    handle_request(server, request, &response);
+    handle_request(server, request, response);
 
-    char *responseHeader = build_response_header(&response);
+    char *responseHeader = build_response_header(response);
 
     send(request->socket, responseHeader, strlen(responseHeader), 0);
-    send(request->socket, response.body, response.contentLength, 0);
+    send(request->socket, response->body, response->contentLength, 0);
 
     close(request->socket);
 
     dispose_request(request);
-    dispose_response(&response);
+    dispose_response(response);
     free(responseHeader);
 
     return 0;
 }
 
-int handle_request(const HttpServer *server, const HttpRequest *request, HttpResponse *response) {
+void handle_request(const HttpServer *server, const HttpRequest *request, HttpResponse *response) {
     static_file_handler(server, request, response);
-
-    return 0;
 }
-
-void dispose_request(HttpRequest *request) {
-    free(request);
-}
-
-void dispose_response(HttpResponse *response) {}
 
 char *resolve_path_from_server_root(const HttpServer *server, char *reqPath) {
-    char *path = calloc(sizeof(char), 65535);
-    char *resolvedPath = calloc(sizeof(char), 65535);
+    char *path = resolve_path(server->serverOption.rootDir, "/", reqPath, NULL);
 
-    strcpy(path, server->serverOption.rootDir);
-    strcat(path, reqPath);
     if (path[strlen(path) - 1] == '/') {
         strcat(path, "index.html");
     }
 
-    resolvedPath = realpath(path, resolvedPath);
-
-    free(path);
-
-    return resolvedPath;
+    return path;
 }
 
-void static_file_handler(const HttpServer *server, const HttpRequest *req, HttpResponse *res) {
+int static_file_handler(const HttpServer *server, const HttpRequest *req, HttpResponse *res) {
     FILE *fp;
     int fd;
     struct stat st;
@@ -159,17 +140,17 @@ void static_file_handler(const HttpServer *server, const HttpRequest *req, HttpR
 
         if (errno == EACCES) {
             forbidden(res);
-            return;
+            return 1;
         }
 
         if (errno == ENOENT) {
             not_found(res);
-            return;
+            return 1;
         }
 
         if (fstat(fd, &st) == -1) {
             internal_server_error(res);
-            return;
+            return 1;
         }
 
         res->contentLength = st.st_size;
@@ -188,9 +169,11 @@ void static_file_handler(const HttpServer *server, const HttpRequest *req, HttpR
         fread(res->body, sizeof(char), res->contentLength, fp);
 
         res->status = 200;
+
+        free(path);
+        return 0;
     } else {
         method_not_allowed(res);
+        return 1;
     }
-
-    free(path);
 }
