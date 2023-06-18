@@ -25,6 +25,7 @@ typedef struct HttpRequest {
     HttpVersion version;
     char *path;
     Header *header;
+    unsigned long bodySize;
     char *body;
 } HttpRequest;
 

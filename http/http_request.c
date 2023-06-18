@@ -36,7 +36,7 @@ HttpRequest *parse_http_request(const char *rawRequest) {
     struct HttpRequest *request = calloc(1, sizeof(struct HttpRequest));
     request->header = new_header();
 
-    while (token->next) {
+    while (token) {
         if (token->kind == TK_Method) {
             if (strncmp(token->str, "GET", token->len) == 0) {
                 request->method = Get;
@@ -65,7 +65,15 @@ HttpRequest *parse_http_request(const char *rawRequest) {
         }
 
         if (token->kind == TK_Body) {
-            memcpy(request->body, token->str, token->len);
+            char *contentLen = request->header->get(request->header, "Content-Length");
+
+            if (contentLen) {
+                int len = atoi(request->header->get(request->header, "Content-Length"));
+                request->bodySize = len;
+                request->body = calloc(sizeof(char), request->bodySize);
+                memcpy(request->body, token->str, request->bodySize);
+
+            }
         }
 
         token = token->next;
@@ -77,6 +85,7 @@ HttpRequest *parse_http_request(const char *rawRequest) {
 }
 
 void dispose_request(HttpRequest *request) {
+    request->header->destroy(request->header);
     free(request->path);
     free(request->body);
     free(request);
@@ -91,7 +100,7 @@ HttpRequestToken *tokenize_http_request(const char *rawRequest, unsigned long le
     HttpRequestToken *cursor = &token;
     HttpRequestTokenKind mode = TK_Method;
     int tokenLen = 0;
-    char *head = rawRequest;
+    char *head = (char *)rawRequest;
 
     while (1) {
         if ((mode == TK_Method || mode == TK_Path) &&
