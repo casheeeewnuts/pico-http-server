@@ -8,6 +8,10 @@
 #include <unistd.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <glib-2.0/glib.h>
 #include "http_server.h"
 
 void http_server_listen(HttpServer *);
@@ -15,6 +19,7 @@ int set_tcp_socket(HttpServer *server);
 int wait_connection(const HttpServer *server);
 int handle_connection(const HttpServer *server, int clientSocket, const struct sockaddr_in *clientAddr);
 int handle_request(const HttpServer *server, const HttpRequest *request, HttpResponse *response);
+void static_file_handler(const HttpServer *server, const HttpRequest *req, HttpResponse *res);
 void dispose_request(HttpRequest *request);
 void dispose_response(HttpResponse *response);
 
@@ -24,6 +29,14 @@ HttpServer new_http_server(struct ServerOption option) {
     server.serverOption = option;
     server.listen = http_server_listen;
     server.socket = -1;
+    server.mimeType = g_hash_table_new(g_str_hash, g_str_equal);
+
+
+    g_hash_table_insert(server.mimeType, ".html", "text/html; charset=utf-8");
+    g_hash_table_insert(server.mimeType, ".css", "text/css; charset=utf-8");
+    g_hash_table_insert(server.mimeType, ".js", "text/javascript; charset=utf-8");
+    g_hash_table_insert(server.mimeType, ".png", "image/png;");
+    g_hash_table_insert(server.mimeType, ".jpg", "image/jpg;");
 
     return server;
 }
@@ -106,12 +119,9 @@ int handle_connection(const HttpServer *server, int clientSocket, const struct s
 }
 
 int handle_request(const HttpServer *server, const HttpRequest *request, HttpResponse *response) {
-    char *body = "hello!";
+    static_file_handler(server, request, response);
 
-    response->status = 200;
-    response->contentType = "text/plain; charset=utf-8";
-    response->contentLength = strlen(body);
-    response->body = body;
+    return 0;
 }
 
 void dispose_request(HttpRequest *request) {
@@ -119,3 +129,68 @@ void dispose_request(HttpRequest *request) {
 }
 
 void dispose_response(HttpResponse *response) {}
+
+char *resolve_path_from_server_root(const HttpServer *server, char *reqPath) {
+    char *path = calloc(sizeof(char), 65535);
+    char *resolvedPath = calloc(sizeof(char), 65535);
+
+    strcpy(path, server->serverOption.rootDir);
+    strcat(path, reqPath);
+    if (path[strlen(path) - 1] == '/') {
+        strcat(path, "index.html");
+    }
+
+    resolvedPath = realpath(path, resolvedPath);
+
+    free(path);
+
+    return resolvedPath;
+}
+
+void static_file_handler(const HttpServer *server, const HttpRequest *req, HttpResponse *res) {
+    FILE *fp;
+    int fd;
+    struct stat st;
+    char *path = resolve_path_from_server_root(server, req->path);
+    char *ext, *mimeType;
+
+    if (req->method == Get) {
+        fd = open(path, O_RDONLY);
+
+        if (errno == EACCES) {
+            forbidden(res);
+            return;
+        }
+
+        if (errno == ENOENT) {
+            not_found(res);
+            return;
+        }
+
+        if (fstat(fd, &st) == -1) {
+            internal_server_error(res);
+            return;
+        }
+
+        res->contentLength = st.st_size;
+        ext = strrchr(path, '.');
+        mimeType = (char *)g_hash_table_lookup(server->mimeType, ext);
+
+        if (mimeType != NULL) {
+            res->contentType = mimeType;
+        } else {
+            res->contentType = "application/octet-stream";
+        }
+
+        fp = fdopen(fd, "rb");
+
+        res->body = malloc(res->contentLength);
+        fread(res->body, sizeof(char), res->contentLength, fp);
+
+        res->status = 200;
+    } else {
+        method_not_allowed(res);
+    }
+
+    free(path);
+}
