@@ -1,10 +1,7 @@
-//
-// Created by casheeeewnuts on 6/17/23.
-//
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include "http_header.h"
 #include "http_response.h"
 
 char *status_message(unsigned short status);
@@ -13,13 +10,8 @@ void del_header(Header *headers, char *key);
 
 HttpResponse *new_response() {
     HttpResponse *response = calloc(1, sizeof(HttpResponse));
-    Header *header = calloc(1, sizeof(Header));
 
-    header->table = g_hash_table_new(g_str_hash, g_str_equal);
-    header->add = add_header;
-    header->remove = del_header;
-
-    response->headers = header;
+    response->headers = new_header();
     response->body = calloc(sizeof(char), 65535);
 
     return response;
@@ -132,14 +124,7 @@ HttpResponse *internal_server_error(HttpResponse *res) {
 
 void dispose_response(HttpResponse *response) {
     g_hash_table_destroy(response->headers->table);
-    free(response->headers);
+    response->headers->destroy(response->headers);
     free(response->body);
     free(response);
-}
-
-void add_header(Header *headers, char *key, char *value) {
-    g_hash_table_insert(headers->table, g_strdup(key), g_strdup(value));
-}
-void del_header(Header *headers, char *key) {
-    g_hash_table_remove(headers->table, key);
 }
