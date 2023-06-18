@@ -159,7 +159,17 @@ int static_file_handler(const HttpServer *server, const HttpRequest *req, HttpRe
         }
 
         if (S_ISDIR(st.st_mode)) {
-            not_found(res);
+            char *tmp = calloc(sizeof(char), 2049);
+            strcat(tmp, req->path);
+
+            if (tmp[strlen(tmp) - 1] != '/') {
+                strcat(tmp, "/");
+            }
+
+            strcat(tmp, "index.html");
+
+            redirect(res, Temporary, tmp);
+            free(tmp);
             return 1;
         }
 
