@@ -6,6 +6,7 @@
 #define PICO_HTTP_SERVER_HTTP_REQUEST_H
 
 #include <netinet/in.h>
+#include "http_header.h"
 
 typedef enum HttpMethod {
     Head,
@@ -23,6 +24,7 @@ typedef struct HttpRequest {
     HttpMethod method;
     HttpVersion version;
     char *path;
+    Header *header;
     char *body;
 } HttpRequest;
 
