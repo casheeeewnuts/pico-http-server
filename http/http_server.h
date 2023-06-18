@@ -15,10 +15,16 @@ struct ServerOption {
     char *rootDir;
 };
 
+typedef struct MimeType {
+    GHashTable *table;
+
+    char *(* resolve)(struct MimeType, char *);
+} MimeType;
+
 typedef struct HttpServer {
     struct ServerOption serverOption;
     int socket;
-    GHashTable *mimeType;
+    MimeType mimeType;
     void (*listen)(struct HttpServer*);
 } HttpServer;
 

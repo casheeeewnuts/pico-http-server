@@ -18,6 +18,7 @@ int wait_connection(const HttpServer *server);
 int handle_connection(const HttpServer *server, int clientSocket, const struct sockaddr_in *clientAddr);
 void handle_request(const HttpServer *server, const HttpRequest *request, HttpResponse *response);
 int static_file_handler(const HttpServer *server, const HttpRequest *req, HttpResponse *res);
+char *resolve_mime_type(MimeType, char *ext);
 
 HttpServer new_http_server(struct ServerOption option) {
     HttpServer server;
@@ -25,14 +26,14 @@ HttpServer new_http_server(struct ServerOption option) {
     server.serverOption = option;
     server.listen = http_server_listen;
     server.socket = -1;
-    server.mimeType = g_hash_table_new(g_str_hash, g_str_equal);
+    server.mimeType.table = g_hash_table_new(g_str_hash, g_str_equal);
+    server.mimeType.resolve = resolve_mime_type;
 
-
-    g_hash_table_insert(server.mimeType, ".html", "text/html; charset=utf-8");
-    g_hash_table_insert(server.mimeType, ".css", "text/css; charset=utf-8");
-    g_hash_table_insert(server.mimeType, ".js", "text/javascript; charset=utf-8");
-    g_hash_table_insert(server.mimeType, ".png", "image/png;");
-    g_hash_table_insert(server.mimeType, ".jpg", "image/jpg;");
+    g_hash_table_insert(server.mimeType.table, ".html", "text/html; charset=utf-8");
+    g_hash_table_insert(server.mimeType.table, ".js", "text/javascript; charset=utf-8");
+    g_hash_table_insert(server.mimeType.table, ".css", "text/css; charset=utf-8");
+    g_hash_table_insert(server.mimeType.table, ".png", "image/png;");
+    g_hash_table_insert(server.mimeType.table, ".jpg", "image/jpg;");
 
     return server;
 }
@@ -92,7 +93,11 @@ int wait_connection(const HttpServer *server) {
 }
 
 int handle_connection(const HttpServer *server, int clientSocket, const struct sockaddr_in *clientAddr) {
-    HttpRequest *request = parse_http_request("GET / HTTP/1.0");
+    char *raw_request = calloc(sizeof(char), 65535);
+
+    recv(clientSocket, raw_request, 65535, 0);
+
+    HttpRequest *request = parse_http_request(raw_request);
     request->socket = clientSocket;
     request->remoteAddr = *clientAddr;
     HttpResponse *response = new_response();
@@ -153,9 +158,14 @@ int static_file_handler(const HttpServer *server, const HttpRequest *req, HttpRe
             return 1;
         }
 
+        if (S_ISDIR(st.st_mode)) {
+            not_found(res);
+            return 1;
+        }
+
         res->contentLength = st.st_size;
         ext = strrchr(path, '.');
-        mimeType = (char *)g_hash_table_lookup(server->mimeType, ext);
+        mimeType = server->mimeType.resolve(server->mimeType, ext);
 
         if (mimeType != NULL) {
             res->contentType = mimeType;
@@ -176,4 +186,12 @@ int static_file_handler(const HttpServer *server, const HttpRequest *req, HttpRe
         method_not_allowed(res);
         return 1;
     }
+}
+
+char *resolve_mime_type(MimeType mimeType, char *ext) {
+    if (ext == NULL) {
+        return NULL;
+    }
+
+    return g_hash_table_lookup(mimeType.table, ext);
 }
