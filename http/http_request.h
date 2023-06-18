@@ -29,6 +29,6 @@ typedef struct HttpRequest {
     char *body;
 } HttpRequest;
 
-HttpRequest *parse_http_request(const char *rawRequest);
+HttpRequest *accept_http_request(int sock, struct sockaddr_in remoteAddr);
 void dispose_request(HttpRequest *request);
 #endif //PICO_HTTP_SERVER_HTTP_REQUEST_H

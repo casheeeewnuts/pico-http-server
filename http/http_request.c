@@ -24,15 +24,73 @@ typedef struct HttpRequestToken {
     unsigned long len;
 } HttpRequestToken;
 
-
-HttpRequestToken *tokenize_http_request(const char *rawRequest, unsigned long len);
-
+HttpRequest *parse_http_request_header(const char *rawRequest);
+HttpRequestToken *tokenize_http_request_header(const char *rawRequest);
 HttpRequestToken *new_token(HttpRequestTokenKind kind, HttpRequestToken *token, char *str, unsigned long len);
-
 void dispose_token(HttpRequestToken *token);
 
-HttpRequest *parse_http_request(const char *rawRequest) {
-    HttpRequestToken *token = tokenize_http_request(rawRequest, 65535);
+HttpRequest *accept_http_request(int sock, struct sockaddr_in remoteAddr) {
+    FILE *fp = fdopen(sock, "r");
+    char *raw_request_header = calloc(sizeof(char), 65535);
+    unsigned long raw_request_header_len = 65535;
+    unsigned long readBytes = 0;
+
+    char *s;
+
+    for (;;) {
+        s = fgets(&raw_request_header[readBytes], 2048, fp);
+
+        if (!s) {
+            fclose(fp);
+            free(raw_request_header);
+            return NULL;
+        }
+
+        if (strcmp(s, "\r\n") == 0) {
+            break;
+        }
+
+        readBytes += strlen(s);
+
+        if (raw_request_header_len - readBytes < 2048) {
+            char *ptr = realloc(raw_request_header, 65535);
+
+            if (!ptr) {
+                fclose(fp);
+                free(raw_request_header);
+                return NULL;
+            }
+            raw_request_header_len += 65535;
+        }
+    }
+
+    HttpRequest *request = parse_http_request_header(raw_request_header);
+
+    char *contentLength;
+    if ((contentLength = request->header->get(request->header, "Content-Length"))) {
+        request->bodySize = atoi(contentLength);
+
+        char *tmp = realloc(request->body, request->bodySize);
+
+        if (!tmp) {
+            fclose(fp);
+            free(raw_request_header);
+            return NULL;
+        }
+
+        request->body = tmp;
+
+        fread(request->body, sizeof(char), request->bodySize, fp);
+    }
+
+    request->socket = sock;
+    request->remoteAddr = remoteAddr;
+
+    return request;
+}
+
+HttpRequest *parse_http_request_header(const char *rawRequest) {
+    HttpRequestToken *token = tokenize_http_request_header(rawRequest);
     struct HttpRequest *request = calloc(1, sizeof(struct HttpRequest));
     request->header = new_header();
 
@@ -64,18 +122,6 @@ HttpRequest *parse_http_request(const char *rawRequest) {
             request->header->add(request->header, key, value);
         }
 
-        if (token->kind == TK_Body) {
-            char *contentLen = request->header->get(request->header, "Content-Length");
-
-            if (contentLen) {
-                int len = atoi(request->header->get(request->header, "Content-Length"));
-                request->bodySize = len;
-                request->body = calloc(sizeof(char), request->bodySize);
-                memcpy(request->body, token->str, request->bodySize);
-
-            }
-        }
-
         token = token->next;
     }
 
@@ -91,7 +137,7 @@ void dispose_request(HttpRequest *request) {
     free(request);
 }
 
-HttpRequestToken *tokenize_http_request(const char *rawRequest, unsigned long len) {
+HttpRequestToken *tokenize_http_request_header(const char *rawRequest) {
     HttpRequestToken token;
     memset(&token, 0, sizeof(HttpRequestToken));
     token.next = NULL;
@@ -100,7 +146,6 @@ HttpRequestToken *tokenize_http_request(const char *rawRequest, unsigned long le
     HttpRequestToken *cursor = &token;
     HttpRequestTokenKind mode = TK_Method;
     int tokenLen = 0;
-    char *head = (char *)rawRequest;
 
     while (1) {
         if ((mode == TK_Method || mode == TK_Path) &&
@@ -119,9 +164,6 @@ HttpRequestToken *tokenize_http_request(const char *rawRequest, unsigned long le
             tokenLen = 0;
 
             if (rawRequest[tokenLen] == '\r' && rawRequest[tokenLen + 1] == '\n') {
-                mode = TK_Body;
-                rawRequest += 2;
-                cursor = new_token(mode, cursor, (char *) rawRequest, len - (long)(rawRequest - head));
                 break;
             } else {
                 if (mode != TK_Header) {

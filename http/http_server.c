@@ -86,22 +86,19 @@ int wait_connection(const HttpServer *server) {
             exit(EXIT_FAILURE);
         }
 
-        if (handle_connection(server, clientSock, &clientAddr)) {
-            return 1;
-        }
+        handle_connection(server, clientSock, &clientAddr);
     }
 }
 
 int handle_connection(const HttpServer *server, int clientSocket, const struct sockaddr_in *clientAddr) {
-    char *raw_request = calloc(sizeof(char), 65535);
+    HttpRequest *request = accept_http_request(clientSocket, *clientAddr);
 
-    recv(clientSocket, raw_request, 65535, 0);
+    if (!request) {
+        close(clientSocket);
+        return 1;
+    }
 
-    HttpRequest *request = parse_http_request(raw_request);
-    request->socket = clientSocket;
-    request->remoteAddr = *clientAddr;
     HttpResponse *response = new_response();
-
 
     handle_request(server, request, response);
 
@@ -209,7 +206,13 @@ int static_file_handler(const HttpServer *server, const HttpRequest *req, HttpRe
             internal_server_error(res);
             return 1;
         }
-        fwrite(req->body, sizeof(char), req->bodySize, fp);
+
+        unsigned long s;
+        s = fwrite(req->body, sizeof(char), req->bodySize, fp);
+
+        fflush(fp);
+        fclose(fp);
+        printf("%lu %lu\n", req->bodySize, s);
 
         res->status = 201;
         res->contentLength = 0;
