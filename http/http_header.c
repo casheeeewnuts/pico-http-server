@@ -16,7 +16,7 @@ void destroy_header(Header *headers);
 Header *new_header() {
     Header *header = calloc(1, sizeof(Header));
 
-    header->table = g_hash_table_new(g_str_hash, g_str_equal);
+    header->table = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
     header->add = add_header;
     header->remove = del_header;
     header->destroy = destroy_header;

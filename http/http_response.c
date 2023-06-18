@@ -123,7 +123,6 @@ HttpResponse *internal_server_error(HttpResponse *res) {
 }
 
 void dispose_response(HttpResponse *response) {
-    g_hash_table_destroy(response->headers->table);
     response->headers->destroy(response->headers);
     free(response->body);
     free(response);
