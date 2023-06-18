@@ -8,7 +8,9 @@
 #include <netinet/in.h>
 
 typedef enum HttpMethod {
-    Get
+    Head,
+    Get,
+    Post
 } HttpMethod;
 
 typedef enum HttpVersion {

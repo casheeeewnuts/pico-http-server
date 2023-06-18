@@ -108,7 +108,10 @@ int handle_connection(const HttpServer *server, int clientSocket, const struct s
     char *responseHeader = build_response_header(response);
 
     send(request->socket, responseHeader, strlen(responseHeader), 0);
-    send(request->socket, response->body, response->contentLength, 0);
+
+    if (request->method != Head) {
+        send(request->socket, response->body, response->contentLength, 0);
+    }
 
     close(request->socket);
 
@@ -140,7 +143,7 @@ int static_file_handler(const HttpServer *server, const HttpRequest *req, HttpRe
     char *path = resolve_path_from_server_root(server, req->path);
     char *ext, *mimeType;
 
-    if (req->method == Get) {
+    if (req->method == Head || req->method == Get) {
         fd = open(path, O_RDONLY);
 
         if (errno == EACCES) {
@@ -181,6 +184,12 @@ int static_file_handler(const HttpServer *server, const HttpRequest *req, HttpRe
             res->contentType = mimeType;
         } else {
             res->contentType = "application/octet-stream";
+        }
+
+        if (req->method == Head) {
+            res->status = 200;
+            free(path);
+            return 0;
         }
 
         fp = fdopen(fd, "rb");
