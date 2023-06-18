@@ -9,6 +9,8 @@ void add_header(Header *headers, char *key, char *value);
 
 void del_header(Header *headers, char *key);
 
+char *lookup(Header *headers, char *key);
+
 void destroy_header(Header *headers);
 
 Header *new_header() {
@@ -18,6 +20,7 @@ Header *new_header() {
     header->add = add_header;
     header->remove = del_header;
     header->destroy = destroy_header;
+    header->get = lookup;
 
     return header;
 }
@@ -33,4 +36,8 @@ void del_header(Header *headers, char *key) {
 void destroy_header(Header *headers) {
     g_hash_table_destroy(headers->table);
     free(headers);
+}
+
+char *lookup(Header *header, char *key) {
+    return g_hash_table_lookup(header->table, key);
 }
