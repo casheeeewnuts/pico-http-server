@@ -1,14 +1,24 @@
-//
-// Created by casheeeewnuts on 6/17/23.
-//
-
 #ifndef PICO_HTTP_SERVER_HTTP_RESPONSE_H
 #define PICO_HTTP_SERVER_HTTP_RESPONSE_H
+
+#include <glib-2.0/glib.h>
+
+typedef struct Header {
+    GHashTable *table;
+
+    void (*add)(struct Header *, char *key, char *value);
+
+    void (*remove)(struct Header *, char *key);
+} Header;
+
+//typedef GHashTable Cookie;
 
 typedef struct HttpResponse {
     unsigned short status;
     unsigned int contentLength;
     char *contentType;
+    Header *headers;
+//    Cookie *cookie;
     char *body;
 } HttpResponse;
 

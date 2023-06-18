@@ -8,19 +8,43 @@
 #include "http_response.h"
 
 char *status_message(unsigned short status);
+void add_header(Header *headers, char *key, char *value);
+void del_header(Header *headers, char *key);
+
+HttpResponse *new_response() {
+    HttpResponse *response = calloc(1, sizeof(HttpResponse));
+    Header *header = calloc(1, sizeof(Header));
+
+    header->table = g_hash_table_new(g_str_hash, g_str_equal);
+    header->add = add_header;
+    header->remove = del_header;
+
+    response->headers = header;
+
+    return response;
+}
 
 char *build_response_header(const HttpResponse *response) {
-    char *header = malloc(sizeof(char) * 65535);
+    char *raw_header = malloc(sizeof(char) * 65535);
 
-    sprintf(header, "HTTP/1.0 %3d %s\n", response->status, status_message(response->status));
-    sprintf(&header[strlen(header)], "Content-Length: %d\n", response->contentLength);
+    sprintf(raw_header, "HTTP/1.0 %3d %s\n", response->status, status_message(response->status));
+    sprintf(&raw_header[strlen(raw_header)], "Content-Length: %d\n", response->contentLength);
 
     if (response->contentType != NULL) {
-        sprintf(&header[strlen(header)], "Content-Type: %s\n", response->contentType);
+        sprintf(&raw_header[strlen(raw_header)], "Content-Type: %s\n", response->contentType);
     }
 
-    header[strlen(header)] = '\n';
-    return header;
+    GList *header = g_hash_table_get_keys(response->headers->table);
+    char *headerValue;
+
+    while (header) {
+        headerValue = g_hash_table_lookup(response->headers->table, header->data);
+        sprintf(&raw_header[strlen(raw_header)], "%s: %s\n", (char *)header->data, headerValue);
+        header = header->next;
+    }
+
+    raw_header[strlen(raw_header)] = '\n';
+    return raw_header;
 }
 
 char *status_message(unsigned short status) {
@@ -64,6 +88,8 @@ HttpResponse *redirect(HttpResponse *res, RedirectType type, char *location) {
     res->contentType = NULL;
     res->body = NULL;
 
+    res->headers->add(res->headers, "Location", location);
+
     return res;
 }
 
@@ -101,4 +127,18 @@ HttpResponse *internal_server_error(HttpResponse *res) {
     res->contentLength = strlen(res->body);
 
     return res;
+}
+
+void dispose_response(HttpResponse *response) {
+    g_hash_table_destroy(response->headers->table);
+    free(response->headers);
+    free(response->body);
+    free(response);
+}
+
+void add_header(Header *headers, char *key, char *value) {
+    g_hash_table_insert(headers->table, key, value);
+}
+void del_header(Header *headers, char *key) {
+    g_hash_table_remove(headers->table, key);
 }
