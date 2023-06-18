@@ -201,6 +201,19 @@ int static_file_handler(const HttpServer *server, const HttpRequest *req, HttpRe
 
         free(path);
         return 0;
+    } else if (req->method == Post) {
+        fp = fopen(path, "w");
+
+        if (!fp) {
+            perror("fopen");
+            internal_server_error(res);
+            return 1;
+        }
+        fwrite(req->body, sizeof(char), req->bodySize, fp);
+
+        res->status = 201;
+        res->contentLength = 0;
+        return 0;
     } else {
         method_not_allowed(res);
         return 1;
